@@ -97,6 +97,20 @@ export default function useAccidents() {
     [accidents, selectedId],
   )
 
+  const addAccident = (newAccident) => {
+    setAccidents((prevAccidents) => {
+      // Check if accident already exists to avoid duplicates
+      const exists = prevAccidents.some((a) => a.id === newAccident.id)
+      if (exists) return prevAccidents
+
+      // Add new accident to the beginning of the list
+      const updated = [newAccident, ...prevAccidents]
+      // Automatically select the newly detected accident
+      setSelectedId(newAccident.id)
+      return updated
+    })
+  }
+
   return {
     accidents,
     loading,
@@ -105,5 +119,6 @@ export default function useAccidents() {
     setSelectedId,
     selectedAccident,
     refresh: fetchAccidents,
+    addAccident,
   }
 }

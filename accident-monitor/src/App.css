@@ -218,6 +218,14 @@
   font-weight: 700;
 }
 
+.metric-address {
+  font-size: 1.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
 .status-copy {
   color: var(--muted);
   font-size: 0.95rem;
@@ -243,6 +251,11 @@
 .status-warning {
   background: rgba(255, 95, 120, 0.14);
   color: var(--danger);
+}
+
+.status-offline {
+  background: rgba(155, 155, 155, 0.16);
+  color: #a0aec0;
 }
 
 .refresh-button {
@@ -272,8 +285,9 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 2.2fr) minmax(320px, 1fr);
   gap: 24px;
+  height: calc(100vh - 280px);
 }
 
 .panel {
@@ -287,7 +301,8 @@
 .map-panel {
   display: flex;
   flex-direction: column;
-  min-height: 720px;
+  min-height: 100%;
+  height: 100%;
 }
 
 .panel-heading {
@@ -310,17 +325,25 @@
 
 .map-shell {
   flex: 1;
-  padding: 0 0 28px;
+  padding: 12px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .leaflet-map {
   width: 100%;
   height: 100%;
-  min-height: 600px;
+  flex: 1;
+  border-radius: 20px;
+  overflow: hidden;
 }
 
 .sidebar-panel-wrapper {
   display: flex;
+  min-height: 100%;
+  height: 100%;
 }
 
 .sidebar-panel {
@@ -329,6 +352,8 @@
   flex-direction: column;
   padding: 28px 28px 24px;
   gap: 18px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .sidebar-header {
@@ -370,6 +395,29 @@
   color: var(--text);
 }
 
+.error-alert {
+  border-color: rgba(255, 95, 120, 0.3);
+  background: rgba(255, 95, 120, 0.12);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.error-alert > svg {
+  flex-shrink: 0;
+}
+
+.error-title {
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--danger);
+}
+
+.error-message {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
 .camera-card {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -378,6 +426,18 @@
   margin-bottom: 20px;
   display: grid;
   gap: 16px;
+}
+
+.location-display {
+  background: rgba(95, 195, 255, 0.1);
+  border: 1px solid rgba(95, 195, 255, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .camera-header {
@@ -471,15 +531,144 @@
 .incident-list {
   display: grid;
   gap: 16px;
-  max-height: calc(100vh - 240px);
   overflow-y: auto;
   padding-right: 4px;
+  flex: 1;
 }
 
 .sidebar-empty {
   color: var(--muted);
   padding: 18px 0;
   text-align: center;
+}
+
+.incident-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.stat:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.stat.active {
+  background: rgba(95, 195, 255, 0.14);
+  border-color: rgba(95, 195, 255, 0.28);
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.sidebar-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.control-group {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+}
+
+.control-select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.control-select:hover,
+.control-select:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  outline: none;
+}
+
+.control-button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.control-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.refresh-btn {
+  width: auto;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.clear-btn {
+  white-space: nowrap;
+}
+
+.sidebar-footer {
+  text-align: center;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.last-updated {
+  margin: 0;
 }
 
 .incident-card {
@@ -552,6 +741,70 @@
   margin: 0 0 16px;
   color: var(--muted);
   line-height: 1.7;
+}
+
+.incident-coords {
+  display: flex;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.incident-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.status-active {
+  background: rgba(80, 216, 144, 0.14);
+  color: var(--success);
+}
+
+.status-resolved {
+  background: rgba(100, 150, 200, 0.14);
+  color: #7dd3fc;
+}
+
+.status-investigating {
+  background: rgba(255, 180, 89, 0.14);
+  color: var(--warning);
+}
+
+.incident-id {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.detection-summary {
+  background: rgba(95, 195, 255, 0.08);
+  border: 1px solid rgba(95, 195, 255, 0.16);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.detection-summary h4 {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  color: var(--accent);
+}
+
+.detection-summary ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.detection-summary li {
+  color: var(--text);
+  font-size: 0.9rem;
+  margin-bottom: 6px;
 }
 
 .incident-footer {
