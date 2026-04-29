@@ -22,10 +22,6 @@ const statusBadges = {
   investigating: { label: 'Under Investigation', color: 'status-investigating' },
 }
 
-function getIncidentIcon(type) {
-  return incidentIcons[type] || AlertTriangle
-}
-
 function getIncidentStatus(severity) {
   // Default to Active for high severity incidents
   if (severity >= 4) return statusBadges.active
@@ -37,7 +33,7 @@ export default function IncidentCard({ incident, isSelected, onClick }) {
 
   const severity = severityLabels[Math.min(Math.max(incident.severity, 1), 5)]
   const status = getIncidentStatus(incident.severity)
-  const IconComponent = getIncidentIcon(incident.type)
+  const IconComponent = incidentIcons[incident.type] || AlertTriangle
   const incidentTime = new Date(incident.timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',

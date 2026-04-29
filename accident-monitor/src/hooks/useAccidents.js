@@ -82,6 +82,7 @@ export default function useAccidents() {
       setAccidents(normalized)
       setSelectedId((current) => current || normalized[0]?.id)
     } catch (err) {
+      console.error('Failed to fetch accidents:', err)
       setError('Unable to fetch live alerts. Showing fallback incident feed.')
     } finally {
       setLoading(false)

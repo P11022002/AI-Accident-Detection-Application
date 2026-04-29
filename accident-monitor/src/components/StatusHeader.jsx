@@ -13,7 +13,6 @@ function formatTime(timestamp) {
 export default function StatusHeader() {
   const { accidents, loading, error, selectedAccident, refresh } = useAccidentStore()
   const [isOnline, setIsOnline] = useState(navigator.onLine)
-  const [lastUpdate, setLastUpdate] = useState(new Date())
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)

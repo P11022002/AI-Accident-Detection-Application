@@ -5,7 +5,7 @@ import IncidentCard from './IncidentCard'
 import CameraFeed from './CameraFeed'
 
 export default function AlertSidebar() {
-  const { accidents, loading, error, selectedId, setSelectedId, refresh, addAccident } = useAccidentStore()
+  const { accidents, loading, error, selectedId, setSelectedId, refresh } = useAccidentStore()
   const [filterSeverity, setFilterSeverity] = useState('all')
   const [sortBy, setSortBy] = useState('severity')
   const [isRefreshing, setIsRefreshing] = useState(false)
