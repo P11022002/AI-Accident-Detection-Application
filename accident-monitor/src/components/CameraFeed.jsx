@@ -4,8 +4,41 @@ import api from '../services/api'
 import '@tensorflow/tfjs'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
 
-const DETECTION_CLASSES = new Set(['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'fire hydrant', 'dogs', 'cats'])
+const DETECTION_CLASSES = new Set(['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle'])
 const ACCIDENT_THRESHOLD = 0.35 // Lowered threshold for better detection
+const COLLISION_COOLDOWN_MS = 12000
+const COLLISION_DISTANCE_PX = 110
+const COLLISION_IOU_THRESHOLD = 0.08
+
+function getBoxCenter(bbox) {
+  const [x, y, width, height] = bbox
+  return {
+    x: x + width / 2,
+    y: y + height / 2,
+  }
+}
+
+function calculateDistance(bbox1, bbox2) {
+  const center1 = getBoxCenter(bbox1)
+  const center2 = getBoxCenter(bbox2)
+  return Math.sqrt((center1.x - center2.x) ** 2 + (center1.y - center2.y) ** 2)
+}
+
+function calculateOverlap(bbox1, bbox2) {
+  const [x1, y1, w1, h1] = bbox1
+  const [x2, y2, w2, h2] = bbox2
+  const left = Math.max(x1, x2)
+  const top = Math.max(y1, y2)
+  const right = Math.min(x1 + w1, x2 + w2)
+  const bottom = Math.min(y1 + h1, y2 + h2)
+  const intersection = Math.max(0, right - left) * Math.max(0, bottom - top)
+  const union = w1 * h1 + w2 * h2 - intersection
+  return union > 0 ? intersection / union : 0
+}
+
+function normalizePairKey(first, second) {
+  return [first, second].sort().join('-')
+}
 
 export default function CameraFeed() {
   const { accidents, addAccident } = useAccidentStore()
@@ -23,6 +56,7 @@ export default function CameraFeed() {
   const modelRef = useRef(null)
   const detectionTimerRef = useRef(null)
   const lastAccidentTimeRef = useRef({})
+  const previousPairsRef = useRef({})
   const frameCountRef = useRef(0)
   const lastFpsTimeRef = useRef(0)
 
@@ -47,17 +81,24 @@ export default function CameraFeed() {
     }
   }
 
-  const calculateDistance = (bbox1, bbox2) => {
-    const [x1, y1, w1, h1] = bbox1
-    const [x2, y2, w2, h2] = bbox2
-    const cx1 = x1 + w1 / 2
-    const cy1 = y1 + h1 / 2
-    const cx2 = x2 + w2 / 2
-    const cy2 = y2 + h2 / 2
-    return Math.sqrt((cx1 - cx2) ** 2 + (cy1 - cy2) ** 2)
-  }
+  const notifyUser = useCallback((title, body) => {
+    if (!('Notification' in window)) return
 
-  const reportAccident = useCallback(async (type, description, severity) => {
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body })
+      return
+    }
+
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          new Notification(title, { body })
+        }
+      })
+    }
+  }, [])
+
+  const reportAccident = useCallback(async ({ type, description, severity, objects, collisionTime }) => {
     const newAccident = {
       id: `incident-${Date.now()}`,
       title: type,
@@ -68,6 +109,8 @@ export default function CameraFeed() {
       lat: currentLocation?.lat || 37.7749,
       lng: currentLocation?.lng || -122.4194,
       location: locationName,
+      objects,
+      collision_time: collisionTime,
     }
 
     // Only add if not already in store
@@ -80,6 +123,7 @@ export default function CameraFeed() {
           if (addAccident) {
             addAccident(newAccident)
           }
+          notifyUser(type, description)
           console.log('Incident reported to backend:', newAccident.id)
         }
       } catch (err) {
@@ -88,54 +132,54 @@ export default function CameraFeed() {
         if (addAccident) {
           addAccident(newAccident)
         }
+        notifyUser(type, description)
       }
     }
-  }, [accidents, addAccident, currentLocation, locationName])
+  }, [accidents, addAccident, currentLocation, locationName, notifyUser])
 
   // Function to detect accident patterns from multiple detections
   const analyzeForAccidents = useCallback((predictions) => {
-    const vehicles = predictions.filter((p) => ['car', 'truck', 'bus', 'motorcycle'].includes(p.class))
+    const collisionObjects = predictions.filter((p) => ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(p.class))
+    const now = Date.now()
+    const collisionTime = new Date(now).toLocaleString()
 
-    if (vehicles.length >= 2) {
-      // Check for potential collisions (vehicles close to each other)
-      for (let i = 0; i < vehicles.length; i++) {
-        for (let j = i + 1; j < vehicles.length; j++) {
-          const dist = calculateDistance(vehicles[i].bbox, vehicles[j].bbox)
-          if (dist < 120) {
-            // Vehicles are close - potential accident
-            const now = Date.now()
-            const accidentKey = `collision-${Math.floor(now / 10000)}`
-            if (!lastAccidentTimeRef.current[accidentKey]) {
-              lastAccidentTimeRef.current[accidentKey] = true
-              reportAccident(
-                'Collision',
-                `Potential collision detected between ${vehicles[i].class} and ${vehicles[j].class} near ${locationName}`,
-                4,
-              )
-            }
+    if (collisionObjects.length >= 2) {
+      for (let i = 0; i < collisionObjects.length; i++) {
+        for (let j = i + 1; j < collisionObjects.length; j++) {
+          const first = collisionObjects[i]
+          const second = collisionObjects[j]
+          const pairKey = normalizePairKey(`${first.class}-${i}`, `${second.class}-${j}`)
+          const distance = calculateDistance(first.bbox, second.bbox)
+          const overlap = calculateOverlap(first.bbox, second.bbox)
+          const previous = previousPairsRef.current[pairKey]
+          const closingFast = previous ? previous.distance - distance > 35 : false
+          const likelyCollision = overlap >= COLLISION_IOU_THRESHOLD || (distance < COLLISION_DISTANCE_PX && closingFast)
+
+          previousPairsRef.current[pairKey] = {
+            distance,
+            updatedAt: now,
+          }
+
+          if (likelyCollision && now - (lastAccidentTimeRef.current[pairKey] || 0) > COLLISION_COOLDOWN_MS) {
+            lastAccidentTimeRef.current[pairKey] = now
+            const firstName = first.class
+            const secondName = second.class
+            const locationText = currentLocation
+              ? `${locationName} (${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)})`
+              : locationName
+
+            reportAccident({
+              type: 'Object Collision',
+              description: `${firstName} collided with ${secondName} at ${collisionTime}. Location: ${locationText}.`,
+              severity: firstName === 'person' || secondName === 'person' ? 5 : 4,
+              objects: [firstName, secondName],
+              collisionTime,
+            })
           }
         }
       }
     }
-
-    // Detect anomalies - person near vehicles
-    const people = predictions.filter((p) => p.class === 'person')
-    if (people.length > 0 && vehicles.length > 0) {
-      people.forEach((person) => {
-        vehicles.forEach((vehicle) => {
-          const dist = calculateDistance(person.bbox, vehicle.bbox)
-          if (dist < 100) {
-            const now = Date.now()
-            const accidentKey = `pedestrian-${Math.floor(now / 10000)}`
-            if (!lastAccidentTimeRef.current[accidentKey]) {
-              lastAccidentTimeRef.current[accidentKey] = true
-              reportAccident('Pedestrian Incident', `Pedestrian detected near vehicle at ${locationName}`, 5)
-            }
-          }
-        })
-      })
-    }
-  }, [locationName, reportAccident])
+  }, [currentLocation, locationName, reportAccident])
 
   useEffect(() => {
     if (!navigator?.geolocation) return

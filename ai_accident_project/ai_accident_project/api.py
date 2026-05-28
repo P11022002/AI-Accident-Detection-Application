@@ -99,6 +99,8 @@ def accidents_view(request):
                 'lng': float(data.get('lng', -122.4194)),
                 'location': data.get('location', 'Unknown location'),
                 'status': data.get('status', 'active'),
+                'objects': data.get('objects', []),
+                'collision_time': data.get('collision_time', data.get('timestamp', datetime.now().isoformat())),
             }
 
             # Add to store
