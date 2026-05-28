@@ -1,7 +1,6 @@
-import { createContext, useContext, useMemo } from 'react'
+import { useMemo } from 'react'
 import useAccidents from '../hooks/useAccidents'
-
-const AccidentContext = createContext(null)
+import AccidentContext from './AccidentContext'
 
 export function AccidentProvider({ children }) {
   const accidentsState = useAccidents()
@@ -12,12 +11,4 @@ export function AccidentProvider({ children }) {
       {children}
     </AccidentContext.Provider>
   )
-}
-
-export function useAccidentStore() {
-  const context = useContext(AccidentContext)
-  if (!context) {
-    throw new Error('useAccidentStore must be used inside AccidentProvider')
-  }
-  return context
 }

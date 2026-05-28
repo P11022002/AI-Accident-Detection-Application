@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, useMap } from 'react-leaflet'
+import { RefreshCw } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
-import { useAccidentStore } from '../store/AccidentStore'
+import { useAccidentStore } from '../store/AccidentContext'
 
 function AutoBounds({ points }) {
   const map = useMap()
@@ -30,9 +31,10 @@ const legendItems = [
 ]
 
 export default function MapView() {
-  const { accidents, selectedId, setSelectedId } = useAccidentStore()
+  const { accidents, selectedId, setSelectedId, refresh, loading } = useAccidentStore()
   const [currentLocation, setCurrentLocation] = useState(null)
   const [locationError, setLocationError] = useState(null)
+  const [currentAddress, setCurrentAddress] = useState(null)
   const defaultCenter = useMemo(() => [37.7749, -122.4194], [])
   const points = accidents.filter((incident) => incident.lat && incident.lng)
 
@@ -53,6 +55,46 @@ export default function MapView() {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     )
   }, [])
+
+  useEffect(() => {
+    if (!currentLocation) {
+      return
+    }
+
+    const controller = new AbortController()
+    const { lat, lng } = currentLocation
+
+    async function fetchAddress() {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+          {
+            headers: {
+              Accept: 'application/json',
+            },
+            signal: controller.signal,
+          },
+        )
+
+        if (!response.ok) {
+          throw new Error('Unable to resolve address')
+        }
+
+        const data = await response.json()
+        setCurrentAddress(data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setCurrentAddress(null)
+        }
+      }
+    }
+
+    fetchAddress()
+
+    return () => {
+      controller.abort()
+    }
+  }, [currentLocation])
 
   const allPoints = useMemo(() => {
     if (!currentLocation) return points
@@ -77,6 +119,22 @@ export default function MapView() {
 
   return (
     <div className="map-shell">
+      <div className="map-toolbar">
+        <div className="location-info">
+          <span className="location-label">Current address</span>
+          <p className="location-text">
+            {currentAddress || locationError || (currentLocation
+              ? `${currentLocation.lat.toFixed(4)}, ${currentLocation.lng.toFixed(4)}`
+              : 'Detecting current location...')}
+          </p>
+        </div>
+
+        <button type="button" className="refresh-button map-refresh" onClick={refresh} disabled={loading} title="Refresh incident feed">
+          <RefreshCw size={16} className={loading ? 'spinning' : ''} />
+          {loading ? 'Refreshing' : 'Refresh'}
+        </button>
+      </div>
+
       <div className="map-legend">
         <span className="legend-title">Severity legend</span>
         <div className="legend-items">
@@ -89,7 +147,7 @@ export default function MapView() {
         </div>
       </div>
       <div className="current-location-card">
-        <div className="location-label">Your current location</div>
+        <div className="location-label">Coordinates</div>
         <div className="location-value">
           {currentLocation
             ? `${currentLocation.lat.toFixed(4)}, ${currentLocation.lng.toFixed(4)}`

@@ -14,20 +14,31 @@
 
 .app-shell {
   min-height: 100vh;
-  padding: 32px 36px 40px;
+  padding: 24px;
   background: radial-gradient(circle at top left, rgba(95, 195, 255, 0.18), transparent 24%),
     radial-gradient(circle at top right, rgba(81, 197, 255, 0.08), transparent 18%),
     linear-gradient(180deg, #081220 0%, #040811 100%);
   color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 16px;
+  }
 }
 
 .status-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
-  justify-content: space-between;
+  justify-content: center;
   align-items: flex-start;
-  margin-bottom: 22px;
+  margin-bottom: 32px;
+  width: 100%;
+  max-width: 1400px;
 }
 
 .status-card {
@@ -96,23 +107,63 @@
 
 .map-shell {
   flex: 1;
-  padding: 0 0 28px;
+  padding: 18px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.location-info {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.location-text {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-refresh {
+  white-space: nowrap;
+}
+
+.spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .current-location-card {
-  position: absolute;
-  left: 22px;
-  top: 24px;
-  z-index: 1000;
-  max-width: 240px;
-  padding: 16px 18px;
-  border-radius: 20px;
+  width: 100%;
+  max-width: 420px;
+  padding: 18px 20px;
+  border-radius: 22px;
   background: rgba(2, 7, 18, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
   display: grid;
   gap: 10px;
+  margin-bottom: 16px;
 }
 
 .center-location-button {
@@ -201,9 +252,10 @@
 
 .status-stack {
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
   flex: 1 1 520px;
+  min-width: 0;
 }
 
 .compact-card {
@@ -287,8 +339,17 @@
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(340px, 1fr);
   gap: 28px;
-  height: calc(100vh - 280px);
+  min-height: calc(100vh - 200px);
+  width: 100%;
+  max-width: 1400px;
   align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
 }
 
 .panel {
@@ -308,6 +369,9 @@
 
 .panel-heading {
   padding: 28px 30px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .panel-heading .eyebrow {
@@ -351,8 +415,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 28px 28px 24px;
-  gap: 18px;
+  padding: 28px;
+  gap: 22px;
   min-height: 0;
   overflow-y: auto;
 }
@@ -360,8 +424,36 @@
 .sidebar-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
+}
+
+.sidebar-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summary-card {
+  padding: 18px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.summary-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 1.8rem;
+  color: var(--text);
 }
 
 .sidebar-label {

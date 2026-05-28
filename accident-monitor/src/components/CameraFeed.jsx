@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useAccidentStore } from '../store/AccidentStore'
+import { useAccidentStore } from '../store/AccidentContext'
 import api from '../services/api'
 import '@tensorflow/tfjs'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
@@ -15,7 +15,9 @@ export default function CameraFeed() {
   const [detections, setDetections] = useState([])
   const [fps, setFps] = useState(0)
   const [currentLocation, setCurrentLocation] = useState(null)
-  const [locationName, setLocationName] = useState('Detecting location...')
+  const [locationName, setLocationName] = useState(
+    navigator?.geolocation ? 'Detecting location...' : 'Location unavailable',
+  )
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const modelRef = useRef(null)
@@ -136,17 +138,14 @@ export default function CameraFeed() {
   }, [locationName, reportAccident])
 
   useEffect(() => {
-    if (!navigator?.geolocation) {
-      setLocationName('Location unavailable')
-      return
-    }
+    if (!navigator?.geolocation) return
 
     const geoWatcher = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords
         setCurrentLocation({ lat: latitude, lng: longitude })
         // Reverse geocode to get address
-        fetchAddressFromCoordinates(latitude, longitude) // eslint-disable-line react-hooks/exhaustive-deps
+        fetchAddressFromCoordinates(latitude, longitude)
       },
       (error) => {
         console.error('Geolocation error:', error)
@@ -156,7 +155,7 @@ export default function CameraFeed() {
     )
 
     return () => navigator.geolocation.clearWatch(geoWatcher)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   const drawDetections = (predictions) => {
     const canvas = canvasRef.current

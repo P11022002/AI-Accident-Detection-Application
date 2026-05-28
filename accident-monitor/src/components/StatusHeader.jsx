@@ -1,5 +1,5 @@
 import { RotateCcw, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
-import { useAccidentStore } from '../store/AccidentStore'
+import { useAccidentStore } from '../store/AccidentContext'
 import { useEffect, useState } from 'react'
 
 function formatTime(timestamp) {
