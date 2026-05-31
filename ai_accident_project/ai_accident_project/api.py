@@ -4,45 +4,12 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 
-# In-memory storage for incidents (replace with database later)
-incidents_store = [
-    {
-        'id': 'A-001',
-        'title': 'Multi-vehicle collision',
-        'description': 'Heavy traffic collision with possible injuries on the southbound highway.',
-        'severity': 4,
-        'type': 'Collision',
-        'timestamp': '2026-03-27T08:45:00Z',
-        'lat': 37.7836,
-        'lng': -122.4089,
-        'location': 'Market St, San Francisco, CA',
-        'status': 'active',
-    },
-    {
-        'id': 'A-002',
-        'title': 'Truck rollover',
-        'description': 'Commercial truck overturned near the river bridge. Expect delays.',
-        'severity': 5,
-        'type': 'Rollover',
-        'timestamp': '2026-03-27T08:10:00Z',
-        'lat': 37.7597,
-        'lng': -122.4280,
-        'location': 'Hayes Valley, San Francisco, CA',
-        'status': 'active',
-    },
-    {
-        'id': 'A-003',
-        'title': 'Motorcycle impact',
-        'description': 'Single motorcycle incident with emergency response dispatched.',
-        'severity': 3,
-        'type': 'Motorcycle',
-        'timestamp': '2026-03-27T07:34:00Z',
-        'lat': 37.7924,
-        'lng': -122.4010,
-        'location': 'Embarcadero, San Francisco, CA',
-        'status': 'active',
-    },
-]
+# In-memory storage for camera-detected incidents only.
+incidents_store = []
+
+
+def is_within_india(lat, lng):
+    return 6.5 <= lat <= 37.1 and 68.0 <= lng <= 97.5
 
 
 @csrf_exempt
@@ -79,13 +46,27 @@ def accidents_view(request):
             data = json.loads(request.body)
 
             # Validate required fields
-            required_fields = ['title', 'description', 'severity', 'type']
+            required_fields = ['title', 'description', 'severity', 'type', 'lat', 'lng', 'source']
             for field in required_fields:
                 if field not in data:
                     return JsonResponse({
                         'success': False,
                         'error': f'Missing required field: {field}'
                     }, status=400)
+
+            if data.get('source') != 'camera':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only camera-detected incidents are accepted.'
+                }, status=400)
+
+            lat = float(data['lat'])
+            lng = float(data['lng'])
+            if not is_within_india(lat, lng):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only current locations inside India are accepted.'
+                }, status=400)
 
             # Create new incident
             new_incident = {
@@ -95,12 +76,15 @@ def accidents_view(request):
                 'severity': min(max(int(data['severity']), 1), 5),
                 'type': data['type'],
                 'timestamp': data.get('timestamp', datetime.now().isoformat()),
-                'lat': float(data.get('lat', 37.7749)),
-                'lng': float(data.get('lng', -122.4194)),
+                'lat': lat,
+                'lng': lng,
                 'location': data.get('location', 'Unknown location'),
                 'status': data.get('status', 'active'),
                 'objects': data.get('objects', []),
                 'collision_time': data.get('collision_time', data.get('timestamp', datetime.now().isoformat())),
+                'collision_point': data.get('collision_point'),
+                'collision_area': data.get('collision_area'),
+                'source': 'camera',
             }
 
             # Add to store

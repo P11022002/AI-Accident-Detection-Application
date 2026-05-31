@@ -14,6 +14,7 @@ const incidentIcons = {
   Motorcycle: AlertCircle,
   Stall: MapPin,
   Accident: AlertTriangle,
+  'Object Collision': AlertTriangle,
 }
 
 const statusBadges = {
@@ -39,6 +40,8 @@ export default function IncidentCard({ incident, isSelected, onClick }) {
     minute: '2-digit',
     hour12: true,
   })
+  const collisionObjects = Array.isArray(incident.objects) ? incident.objects.join(' + ') : ''
+  const collisionTime = incident.collision_time ? new Date(incident.collision_time).toLocaleString() : null
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -81,6 +84,14 @@ export default function IncidentCard({ incident, isSelected, onClick }) {
           <Navigation2 size={12} /> {incident.lat?.toFixed(4)}, {incident.lng?.toFixed(4)}
         </span>
       </div>
+
+      {(collisionObjects || incident.collision_area || collisionTime) && (
+        <div className="incident-coords">
+          {collisionObjects && <span>Objects: {collisionObjects}</span>}
+          {incident.collision_area && <span>Collision: {incident.collision_area}</span>}
+          {collisionTime && <span>Date and time: {collisionTime}</span>}
+        </div>
+      )}
 
       <div className="incident-footer">
         <span>

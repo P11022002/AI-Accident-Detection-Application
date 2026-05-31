@@ -9,6 +9,16 @@ const ACCIDENT_THRESHOLD = 0.35 // Lowered threshold for better detection
 const COLLISION_COOLDOWN_MS = 12000
 const COLLISION_DISTANCE_PX = 110
 const COLLISION_IOU_THRESHOLD = 0.08
+const INDIA_BOUNDS = {
+  minLat: 6.5,
+  maxLat: 37.1,
+  minLng: 68.0,
+  maxLng: 97.5,
+}
+
+function isWithinIndia(lat, lng) {
+  return lat >= INDIA_BOUNDS.minLat && lat <= INDIA_BOUNDS.maxLat && lng >= INDIA_BOUNDS.minLng && lng <= INDIA_BOUNDS.maxLng
+}
 
 function getBoxCenter(bbox) {
   const [x, y, width, height] = bbox
@@ -34,6 +44,22 @@ function calculateOverlap(bbox1, bbox2) {
   const intersection = Math.max(0, right - left) * Math.max(0, bottom - top)
   const union = w1 * h1 + w2 * h2 - intersection
   return union > 0 ? intersection / union : 0
+}
+
+function getCollisionPoint(firstBox, secondBox) {
+  const firstCenter = getBoxCenter(firstBox)
+  const secondCenter = getBoxCenter(secondBox)
+  return {
+    x: Math.round((firstCenter.x + secondCenter.x) / 2),
+    y: Math.round((firstCenter.y + secondCenter.y) / 2),
+  }
+}
+
+function describeFrameArea(point, frameWidth, frameHeight) {
+  if (!frameWidth || !frameHeight) return 'the camera frame'
+  const horizontal = point.x < frameWidth / 3 ? 'left' : point.x > (frameWidth * 2) / 3 ? 'right' : 'center'
+  const vertical = point.y < frameHeight / 3 ? 'top' : point.y > (frameHeight * 2) / 3 ? 'bottom' : 'middle'
+  return `${vertical}-${horizontal} of the camera frame`
 }
 
 function normalizePairKey(first, second) {
@@ -69,7 +95,7 @@ export default function CameraFeed() {
     try {
       // Using OpenStreetMap Nominatim API for free reverse geocoding
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+        `https://nominatim.openstreetmap.org/reverse?format=json&countrycodes=in&lat=${lat}&lon=${lng}`,
         { headers: { 'User-Agent': 'accident-monitor' } },
       )
       const data = await response.json()
@@ -98,7 +124,12 @@ export default function CameraFeed() {
     }
   }, [])
 
-  const reportAccident = useCallback(async ({ type, description, severity, objects, collisionTime }) => {
+  const reportAccident = useCallback(async ({ type, description, severity, objects, collisionTime, collisionPoint, collisionArea }) => {
+    if (!currentLocation) {
+      setError('India location is required before reporting camera collisions.')
+      return
+    }
+
     const newAccident = {
       id: `incident-${Date.now()}`,
       title: type,
@@ -106,11 +137,14 @@ export default function CameraFeed() {
       severity,
       type,
       timestamp: new Date().toISOString(),
-      lat: currentLocation?.lat || 37.7749,
-      lng: currentLocation?.lng || -122.4194,
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
       location: locationName,
       objects,
       collision_time: collisionTime,
+      collision_point: collisionPoint,
+      collision_area: collisionArea,
+      source: 'camera',
     }
 
     // Only add if not already in store
@@ -141,7 +175,9 @@ export default function CameraFeed() {
   const analyzeForAccidents = useCallback((predictions) => {
     const collisionObjects = predictions.filter((p) => ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(p.class))
     const now = Date.now()
-    const collisionTime = new Date(now).toLocaleString()
+    const collisionDate = new Date(now)
+    const collisionTime = collisionDate.toISOString()
+    const collisionTimeText = collisionDate.toLocaleString()
 
     if (collisionObjects.length >= 2) {
       for (let i = 0; i < collisionObjects.length; i++) {
@@ -164,16 +200,20 @@ export default function CameraFeed() {
             lastAccidentTimeRef.current[pairKey] = now
             const firstName = first.class
             const secondName = second.class
+            const collisionPoint = getCollisionPoint(first.bbox, second.bbox)
+            const collisionArea = describeFrameArea(collisionPoint, videoRef.current?.videoWidth, videoRef.current?.videoHeight)
             const locationText = currentLocation
               ? `${locationName} (${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)})`
               : locationName
 
             reportAccident({
               type: 'Object Collision',
-              description: `${firstName} collided with ${secondName} at ${collisionTime}. Location: ${locationText}.`,
+              description: `${firstName} collided with ${secondName} at ${collisionTimeText}. Collision happened at ${collisionArea} near pixel (${collisionPoint.x}, ${collisionPoint.y}). Location: ${locationText}.`,
               severity: firstName === 'person' || secondName === 'person' ? 5 : 4,
               objects: [firstName, secondName],
               collisionTime,
+              collisionPoint,
+              collisionArea,
             })
           }
         }
@@ -187,7 +227,14 @@ export default function CameraFeed() {
     const geoWatcher = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords
+        if (!isWithinIndia(latitude, longitude)) {
+          setCurrentLocation(null)
+          setLocationName('Current location is outside India')
+          setError('Only current locations inside India are accepted.')
+          return
+        }
         setCurrentLocation({ lat: latitude, lng: longitude })
+        setError('')
         // Reverse geocode to get address
         fetchAddressFromCoordinates(latitude, longitude)
       },
@@ -195,7 +242,7 @@ export default function CameraFeed() {
         console.error('Geolocation error:', error)
         setLocationName('Location permission denied')
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 },
     )
 
     return () => navigator.geolocation.clearWatch(geoWatcher)
@@ -260,6 +307,10 @@ export default function CameraFeed() {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream
       videoRef.current.muted = true
+      videoRef.current.play().catch((err) => {
+        setError(err?.message || 'Unable to start camera playback.')
+        setStatus('error')
+      })
     }
   }, [stream])
 
@@ -314,6 +365,37 @@ export default function CameraFeed() {
     detect()
   }
 
+  const waitForVideoReady = () => new Promise((resolve, reject) => {
+    const video = videoRef.current
+    if (!video) {
+      reject(new Error('Camera video element is not available.'))
+      return
+    }
+
+    const finish = () => {
+      cleanup()
+      resolve()
+    }
+    const fail = () => {
+      cleanup()
+      reject(new Error('Camera stream could not start playback.'))
+    }
+    const cleanup = () => {
+      video.removeEventListener('loadedmetadata', finish)
+      video.removeEventListener('canplay', finish)
+      video.removeEventListener('error', fail)
+    }
+
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      resolve()
+      return
+    }
+
+    video.addEventListener('loadedmetadata', finish, { once: true })
+    video.addEventListener('canplay', finish, { once: true })
+    video.addEventListener('error', fail, { once: true })
+  })
+
   const startCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Camera access is not supported by this browser.')
@@ -333,7 +415,17 @@ export default function CameraFeed() {
         },
         audio: false,
       })
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+      }
+
       setStream(mediaStream)
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream
+        videoRef.current.muted = true
+        await videoRef.current.play()
+        await waitForVideoReady()
+      }
       setStatus('loading-model')
 
       if (!modelRef.current) {

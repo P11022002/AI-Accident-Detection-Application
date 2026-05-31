@@ -1,52 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import api from '../services/api'
 
-const fallbackAccidents = [
-  {
-    id: 'A-001',
-    title: 'Multi-vehicle collision',
-    description: 'Heavy traffic collision with possible injuries on the southbound highway.',
-    severity: 4,
-    type: 'Collision',
-    timestamp: '2026-03-27T08:45:00Z',
-    lat: 37.7836,
-    lng: -122.4089,
-    location: 'Market St, San Francisco, CA',
-  },
-  {
-    id: 'A-002',
-    title: 'Truck rollover',
-    description: 'Commercial truck overturned near the river bridge. Expect delays.',
-    severity: 5,
-    type: 'Rollover',
-    timestamp: '2026-03-27T08:10:00Z',
-    lat: 37.7597,
-    lng: -122.4280,
-    location: 'Hayes Valley, San Francisco, CA',
-  },
-  {
-    id: 'A-003',
-    title: 'Motorcycle impact',
-    description: 'Single motorcycle incident with emergency response dispatched.',
-    severity: 3,
-    type: 'Motorcycle',
-    timestamp: '2026-03-27T07:34:00Z',
-    lat: 37.7924,
-    lng: -122.4010,
-    location: 'Embarcadero, San Francisco, CA',
-  },
-  {
-    id: 'A-004',
-    title: 'Disabled vehicle',
-    description: 'Broken down car blocking the right lane, slow moving traffic.',
-    severity: 2,
-    type: 'Stall',
-    timestamp: '2026-03-27T07:05:00Z',
-    lat: 37.7685,
-    lng: -122.4324,
-    location: 'Van Ness Ave, San Francisco, CA',
-  },
-]
+const fallbackAccidents = []
+
+function isWithinIndia(lat, lng) {
+  return lat >= 6.5 && lat <= 37.1 && lng >= 68.0 && lng <= 97.5
+}
 
 function formatAccidents(payload) {
   if (!Array.isArray(payload)) {
@@ -59,10 +18,15 @@ function formatAccidents(payload) {
     severity: Number(item.severity ?? item.urgency ?? 3),
     type: item.type || item.category || 'Accident',
     timestamp: item.timestamp || item.occurred_at || new Date().toISOString(),
-    lat: Number(item.latitude ?? item.lat ?? item.location?.lat ?? 37.7749),
-    lng: Number(item.longitude ?? item.lng ?? item.location?.lng ?? -122.4194),
+    lat: Number(item.latitude ?? item.lat ?? item.location?.lat),
+    lng: Number(item.longitude ?? item.lng ?? item.location?.lng),
     location: item.location || item.location_name || 'Unknown location',
-  }))
+    source: item.source || 'camera',
+    objects: item.objects || [],
+    collision_time: item.collision_time,
+    collision_point: item.collision_point,
+    collision_area: item.collision_area,
+  })).filter((item) => item.source === 'camera' && isWithinIndia(item.lat, item.lng))
 }
 
 export default function useAccidents() {
@@ -83,7 +47,7 @@ export default function useAccidents() {
       setSelectedId((current) => current || normalized[0]?.id)
     } catch (err) {
       console.error('Failed to fetch accidents:', err)
-      setError('Unable to fetch live alerts. Showing fallback incident feed.')
+      setError('Unable to fetch camera alerts.')
     } finally {
       setLoading(false)
     }

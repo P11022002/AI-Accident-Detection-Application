@@ -30,12 +30,16 @@ const legendItems = [
   { label: 'Low', color: '#5fc3ff' },
 ]
 
+function isWithinIndia(lat, lng) {
+  return lat >= 6.5 && lat <= 37.1 && lng >= 68.0 && lng <= 97.5
+}
+
 export default function MapView() {
   const { accidents, selectedId, setSelectedId, refresh, loading } = useAccidentStore()
   const [currentLocation, setCurrentLocation] = useState(null)
   const [locationError, setLocationError] = useState(null)
   const [currentAddress, setCurrentAddress] = useState(null)
-  const defaultCenter = useMemo(() => [37.7749, -122.4194], [])
+  const defaultCenter = useMemo(() => [20.5937, 78.9629], [])
   const points = accidents.filter((incident) => incident.lat && incident.lng)
 
   useEffect(() => {
@@ -47,6 +51,11 @@ export default function MapView() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords
+        if (!isWithinIndia(latitude, longitude)) {
+          setCurrentLocation(null)
+          setLocationError('Current location is outside India')
+          return
+        }
         setCurrentLocation({ lat: latitude, lng: longitude, accuracy })
       },
       (error) => {
@@ -67,7 +76,7 @@ export default function MapView() {
     async function fetchAddress() {
       try {
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&countrycodes=in&lat=${lat}&lon=${lng}`,
           {
             headers: {
               Accept: 'application/json',
