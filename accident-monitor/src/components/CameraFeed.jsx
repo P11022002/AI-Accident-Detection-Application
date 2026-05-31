@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAccidentStore } from '../store/AccidentContext'
 import api from '../services/api'
-import '@tensorflow/tfjs'
+import * as tf from '@tensorflow/tfjs'
+import '@tensorflow/tfjs-backend-webgl'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
 
 const DETECTION_CLASSES = new Set(['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle'])
@@ -140,6 +141,7 @@ export default function CameraFeed() {
       lat: currentLocation.lat,
       lng: currentLocation.lng,
       location: locationName,
+      // include rich object info (class, score, bbox)
       objects,
       collision_time: collisionTime,
       collision_point: collisionPoint,
@@ -206,11 +208,17 @@ export default function CameraFeed() {
               ? `${locationName} (${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)})`
               : locationName
 
+            // Build objects payload with class, score and bbox
+            const payloadObjects = [
+              { class: first.class, score: first.score, bbox: first.bbox },
+              { class: second.class, score: second.score, bbox: second.bbox },
+            ]
+
             reportAccident({
               type: 'Object Collision',
               description: `${firstName} collided with ${secondName} at ${collisionTimeText}. Collision happened at ${collisionArea} near pixel (${collisionPoint.x}, ${collisionPoint.y}). Location: ${locationText}.`,
               severity: firstName === 'person' || secondName === 'person' ? 5 : 4,
-              objects: [firstName, secondName],
+              objects: payloadObjects,
               collisionTime,
               collisionPoint,
               collisionArea,
@@ -407,6 +415,20 @@ export default function CameraFeed() {
     setError('')
 
     try {
+      // Prefer WebGL backend for performance; fall back to cpu if unavailable
+      try {
+        await tf.setBackend('webgl')
+        await tf.ready()
+      } catch (backendErr) {
+        console.warn('WebGL backend not available, falling back to cpu', backendErr)
+        try {
+          await tf.setBackend('cpu')
+          await tf.ready()
+        } catch (cpuErr) {
+          console.error('Failed to initialize tf backends', cpuErr)
+        }
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -436,7 +458,7 @@ export default function CameraFeed() {
           setStatus('detecting')
           await startDetectionLoop()
         } catch (modelErr) {
-          setError('Failed to load detection model. ' + modelErr?.message)
+          setError('Failed to load detection model. ' + (modelErr?.message || modelErr))
           setStatus('error')
           mediaStream.getTracks().forEach((track) => track.stop())
         }

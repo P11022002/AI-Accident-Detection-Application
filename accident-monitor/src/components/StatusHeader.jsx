@@ -32,8 +32,8 @@ export default function StatusHeader() {
   const statusLabel = systemStatus === 'offline' ? 'Offline' : systemStatus === 'degraded' ? 'Degraded' : 'Operational'
   const statusTone = systemStatus === 'offline' ? 'status-offline' : systemStatus === 'degraded' ? 'status-warning' : 'status-ok'
   const recentUpdate = selectedAccident ? formatTime(selectedAccident.timestamp) : '--'
-  const liveText = loading ? 'Realtime stream refreshing' : 'Realtime alert stream active'
-  const connectionText = isOnline ? 'Backend connected' : 'Backend disconnected'
+  const liveText = loading ? 'Realtime stream refreshing' : error ? 'Realtime alert stream unavailable' : 'Realtime alert stream active'
+  const connectionText = !isOnline ? 'Browser offline' : error ? 'Backend unreachable' : 'Backend connected'
 
   return (
     <section className="status-bar">

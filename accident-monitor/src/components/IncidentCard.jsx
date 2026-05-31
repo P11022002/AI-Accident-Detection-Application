@@ -40,7 +40,9 @@ export default function IncidentCard({ incident, isSelected, onClick }) {
     minute: '2-digit',
     hour12: true,
   })
-  const collisionObjects = Array.isArray(incident.objects) ? incident.objects.join(' + ') : ''
+  const collisionObjects = Array.isArray(incident.objects)
+    ? incident.objects.map((object) => object.class || object).join(' + ')
+    : ''
   const collisionTime = incident.collision_time ? new Date(incident.collision_time).toLocaleString() : null
 
   const handleKeyDown = (e) => {

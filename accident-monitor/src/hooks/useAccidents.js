@@ -47,7 +47,14 @@ export default function useAccidents() {
       setSelectedId((current) => current || normalized[0]?.id)
     } catch (err) {
       console.error('Failed to fetch accidents:', err)
-      setError('Unable to fetch camera alerts.')
+      setAccidents([])
+      setSelectedId(null)
+      const apiUrl = err.config?.baseURL || 'backend API'
+      if (err.code === 'ERR_NETWORK') {
+        setError(`Unable to reach Django at ${apiUrl}. Start the backend server and refresh the feed.`)
+      } else {
+        setError(err.response?.data?.error || 'Unable to fetch camera alerts.')
+      }
     } finally {
       setLoading(false)
     }
