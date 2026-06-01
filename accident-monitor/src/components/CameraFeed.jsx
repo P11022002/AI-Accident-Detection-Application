@@ -5,7 +5,17 @@ import * as tf from '@tensorflow/tfjs'
 import '@tensorflow/tfjs-backend-webgl'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
 
-const DETECTION_CLASSES = new Set(['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle'])
+const DETECTION_CLASSES = new Set([
+  'person',
+  'car',
+  'truck',
+  'bus',
+  'motorcycle',
+  'bicycle',
+  'bottle',
+  'pen',
+  'copy',
+])
 const ACCIDENT_THRESHOLD = 0.35 // Lowered threshold for better detection
 const COLLISION_COOLDOWN_MS = 12000
 const COLLISION_DISTANCE_PX = 110
@@ -175,7 +185,7 @@ export default function CameraFeed() {
 
   // Function to detect accident patterns from multiple detections
   const analyzeForAccidents = useCallback((predictions) => {
-    const collisionObjects = predictions.filter((p) => ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(p.class))
+    const collisionObjects = predictions.filter((p) => DETECTION_CLASSES.has(p.class))
     const now = Date.now()
     const collisionDate = new Date(now)
     const collisionTime = collisionDate.toISOString()
@@ -243,6 +253,7 @@ export default function CameraFeed() {
         }
         setCurrentLocation({ lat: latitude, lng: longitude })
         setError('')
+        setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
         // Reverse geocode to get address
         fetchAddressFromCoordinates(latitude, longitude)
       },
